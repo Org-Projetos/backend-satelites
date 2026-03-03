@@ -15,7 +15,9 @@ BBox = Annotated[
 
 SatelliteType = Literal["sentinel2", "landsat", "sentinel1"]
 OpticalSatelliteType = Literal["sentinel2", "landsat"]
+TilerSatelliteType = Literal["cbers4a"]
 VisualTypeOptical = Literal["truecolor", "falsecolor", "ndvi", "evi", "swir", "ndmi", "ndwi"]
+VisualTypeCbers4a = Literal["truecolor", "falsecolor", "ndvi"]
 VisualTypeS1 = Literal["vv", "vh", "rgb", "rvi"]
 Resolution = Literal["low", "medium", "high", "native"]
 
@@ -65,7 +67,10 @@ class RenderRequest(BaseModel):
     visualType: VisualTypeOptical = "truecolor"
     resolution: Resolution = "medium"
     maxCloudCover: float = Field(30, ge=0, le=100)
-    satelliteType: OpticalSatelliteType = "sentinel2"
+    satelliteType: Annotated[
+        OpticalSatelliteType | TilerSatelliteType,
+        Field(description="sentinel2 | landsat (Process API) ou cbers4a (tiler)"),
+    ] = "sentinel2"
 
 
 class S1RenderRequest(BaseModel):

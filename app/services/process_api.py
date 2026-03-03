@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 import httpx
 
 from app.auth.cdse import cdse_auth
+from app.cache import image_cache
 from app.config import get_settings
 from app.evalscripts import get_evalscript
 from app.evalscripts.sentinel2 import CLOUD_MASK_SCL
@@ -97,6 +98,20 @@ async def render_optical(
 ) -> bytes:
     """Renderiza imagem óptica (S2 ou Landsat) via Process API."""
     settings = get_settings()
+
+    if settings.image_cache_enabled:
+        cache_key = image_cache.make_key(
+            type="optical",
+            satellite=satellite_type,
+            visual=visual_type,
+            resolution=resolution,
+            date=date,
+            bbox=",".join(str(round(x, 6)) for x in bbox),
+        )
+        cached = image_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
     token = await cdse_auth.get_token(settings)
 
     date_obj = datetime.fromisoformat(date.replace("Z", ""))
@@ -137,7 +152,12 @@ async def render_optical(
             timeout=90,
         )
         resp.raise_for_status()
-        return resp.content
+        result = resp.content
+
+    if settings.image_cache_enabled:
+        image_cache.set(cache_key, result)
+
+    return result
 
 
 async def render_sentinel1(
@@ -148,6 +168,19 @@ async def render_sentinel1(
 ) -> bytes:
     """Renderiza imagem SAR Sentinel-1 via Process API."""
     settings = get_settings()
+
+    if settings.image_cache_enabled:
+        cache_key = image_cache.make_key(
+            type="sentinel1",
+            visual=visual_type,
+            resolution=resolution,
+            date=date,
+            bbox=",".join(str(round(x, 6)) for x in bbox),
+        )
+        cached = image_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
     token = await cdse_auth.get_token(settings)
 
     date_obj = datetime.fromisoformat(date.replace("Z", ""))
@@ -190,7 +223,12 @@ async def render_sentinel1(
             timeout=90,
         )
         resp.raise_for_status()
-        return resp.content
+        result = resp.content
+
+    if settings.image_cache_enabled:
+        image_cache.set(cache_key, result)
+
+    return result
 
 
 async def check_has_data(

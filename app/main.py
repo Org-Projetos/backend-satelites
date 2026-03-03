@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.cache import image_cache
 from app.config import get_settings
 from app.routes import cloud_cover, has_data, render, search, thumbnail
 
@@ -18,6 +19,27 @@ def create_app() -> FastAPI:
         version="1.0.0",
         docs_url="/docs",
         redoc_url="/redoc",
+    )
+
+    # Rate limiting por IP
+    if settings.rate_limit_enabled:
+        from slowapi import Limiter, _rate_limit_exceeded_handler
+        from slowapi.errors import RateLimitExceeded
+        from slowapi.middleware import SlowAPIMiddleware
+        from slowapi.util import get_remote_address
+
+        limiter = Limiter(
+            key_func=get_remote_address,
+            default_limits=[settings.rate_limit_default],
+        )
+        app.state.limiter = limiter
+        app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+        app.add_middleware(SlowAPIMiddleware)
+
+    # Cache de imagens — reconfigura TTL e tamanho com valores do .env
+    image_cache.reconfigure(
+        ttl=settings.image_cache_ttl_seconds,
+        max_size=settings.image_cache_max_size,
     )
 
     app.add_middleware(
