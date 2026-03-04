@@ -32,8 +32,8 @@ class AIAnalysisResponse(BaseModel):
     """Response da análise via IA."""
     
     selectedScene: SelectedScene
-    analysisImages: dict[str, str] = Field(
-        description="Imagens em base64: truecolor e ndvi"
+    images: dict[str, str] = Field(
+        description="Imagens em base64 que foram enviadas para a IA"
     )
-    aiReport: str = Field(description="Relatório gerado pela IA")
+    analysis: str = Field(description="Relatório gerado pela IA")
     metadata: dict = Field(description="Metadados do processamento")

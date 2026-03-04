@@ -37,8 +37,15 @@ function evaluatePixel(s) { var v=Math.sqrt(s.VV)*3; return [v,v,v]; }
 def compute_dimensions(bbox: list[float], resolution: str) -> tuple[int, int]:
     """Calcula (width, height) em pixels mantendo aspect ratio da bbox."""
     west, south, east, north = bbox
+    
+    print(f"📏 Calculando dimensões para bbox: {bbox}")
+    print(f"📐 Resolução solicitada: {resolution}")
+    
     lng_span = abs(east - west)
     lat_span = abs(north - south)
+    
+    print(f"📊 Largura (lng): {lng_span:.6f}°")
+    print(f"📊 Altura (lat): {lat_span:.6f}°")
 
     if resolution == "native":
         lat_center = (south + north) / 2
@@ -54,12 +61,16 @@ def compute_dimensions(bbox: list[float], resolution: str) -> tuple[int, int]:
             scale = max_px / max(width, height)
             width = int(width * scale)
             height = int(height * scale)
-        return max(64, width), max(64, height)
+        result = max(64, width), max(64, height)
+        print(f"🖼️ Dimensões nativas: {result}")
+        return result
 
     max_px = {"low": 512, "medium": 1024, "high": 2048}[resolution]
 
     if lng_span == 0 and lat_span == 0:
-        return max_px, max_px
+        result = max_px, max_px
+        print(f"🖼️ Dimensões (ponto): {result}")
+        return result
 
     if lng_span >= lat_span:
         width = max_px
@@ -70,7 +81,10 @@ def compute_dimensions(bbox: list[float], resolution: str) -> tuple[int, int]:
 
     width = max(64, min(max_px, width))
     height = max(64, min(max_px, height))
-    return width, height
+    
+    result = width, height
+    print(f"🖼️ Dimensões finais: {result}")
+    return result
 
 
 def _bounds_input(bbox: list[float]) -> dict:
@@ -84,7 +98,15 @@ def _png_output(width: int, height: int) -> dict:
     return {
         "width": width,
         "height": height,
-        "responses": [{"identifier": "default", "format": {"type": "image/png"}}],
+        "responses": [
+            {
+                "identifier": "default", 
+                "format": {
+                    "type": "image/png",
+                    "quality": 95
+                }
+            }
+        ],
     }
 
 
@@ -115,12 +137,22 @@ async def render_optical(
     token = await cdse_auth.get_token(settings)
 
     date_obj = datetime.fromisoformat(date.replace("Z", ""))
-    from_dt = (date_obj - timedelta(days=15)).strftime("%Y-%m-%dT00:00:00Z")
-    to_dt = (date_obj + timedelta(days=15)).strftime("%Y-%m-%dT23:59:59Z")
+    
+    # Usar janela temporal maior (±3 dias) para garantir dados disponíveis
+    from_dt = (date_obj - timedelta(days=3)).strftime("%Y-%m-%dT00:00:00Z")
+    to_dt = (date_obj + timedelta(days=3)).strftime("%Y-%m-%dT23:59:59Z")
 
     width, height = compute_dimensions(bbox, resolution)
     collection = COLLECTION_MAP[satellite_type]
     evalscript = get_evalscript(satellite_type, visual_type)
+
+    print(f"🔧 Configurações de renderização:")
+    print(f"   📐 Dimensões: {width}x{height}")
+    print(f"   🗂️ Collection: {collection}")
+    print(f"   ⏰ Janela temporal: {from_dt} → {to_dt}")
+    print(f"   ☁️ Max cloud cover: {max_cloud_cover}%")
+    print(f"   📊 Bbox: {bbox}")
+    print(f"   📜 Evalscript preview: {evalscript[:200]}...")
 
     body = {
         "input": {
@@ -130,10 +162,13 @@ async def render_optical(
                     "type": collection,
                     "dataFilter": {
                         "timeRange": {"from": from_dt, "to": to_dt},
-                        "maxCloudCoverage": max_cloud_cover,
+                        "maxCloudCoverage": 100,  # Usar 100% para garantir que encontre a cena
                         "mosaickingOrder": "leastCC",
                     },
-                    "processing": {"upsampling": "BICUBIC", "downsampling": "BICUBIC"},
+                    "processing": {
+                        "upsampling": "BICUBIC", 
+                        "downsampling": "BICUBIC",
+                    },
                 }
             ],
         },
@@ -142,6 +177,13 @@ async def render_optical(
     }
 
     async with httpx.AsyncClient() as client:
+        print(f"🌐 Fazendo requisição para Process API:")
+        print(f"   📍 URL: {settings.process_url}")
+        print(f"   📦 Body (dimensions): width={width}, height={height}")
+        print(f"   🎨 Evalscript type: {visual_type}")
+        print(f"   ⏰ Time range: {from_dt} → {to_dt}")
+        print(f"   ☁️ Max cloud cover: {max_cloud_cover}%")
+        
         resp = await client.post(
             settings.process_url,
             json=body,
@@ -151,6 +193,17 @@ async def render_optical(
             },
             timeout=90,
         )
+        
+        print(f"📡 Resposta da API:")
+        print(f"   🔢 Status: {resp.status_code}")
+        print(f"   📏 Tamanho: {len(resp.content)} bytes")
+        print(f"   📋 Content-Type: {resp.headers.get('Content-Type', 'N/A')}")
+        
+        if len(resp.content) < 5000:  # Aumentei o limite para detectar imagens suspeitas
+            print(f"⚠️ ALERTA: Imagem muito pequena!")
+            print(f"   🔍 Primeiros 50 bytes: {resp.content[:50]}")
+            print(f"   💭 Possível causa: Sem dados válidos na área/período")
+        
         resp.raise_for_status()
         result = resp.content
 

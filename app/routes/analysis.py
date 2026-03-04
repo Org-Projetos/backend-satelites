@@ -38,6 +38,9 @@ async def analyze_satellite_image(req: AIAnalysisRequest) -> AIAnalysisResponse:
     
     try:
         # 1. Seleção automática da melhor cena
+        print(f"📐 Área requisitada: {req.bbox}")
+        print(f"🔍 Resolução: {req.resolution}")
+        
         scene = await image_selector.select_best_scene(
             bbox=req.bbox,
             date=req.date,
@@ -73,8 +76,15 @@ async def analyze_satellite_image(req: AIAnalysisRequest) -> AIAnalysisResponse:
         )
         
         # 3. Conversão para base64
+        print(f"📸 Renderização concluída:")
+        print(f"  🎨 Truecolor: {len(truecolor_bytes)} bytes")
+        print(f"  🌱 NDVI: {len(ndvi_bytes)} bytes")
+        
         truecolor_b64 = ai_vision.encode_image_to_base64(truecolor_bytes)
         ndvi_b64 = ai_vision.encode_image_to_base64(ndvi_bytes)
+        
+        print(f"  📋 Base64 Truecolor: {len(truecolor_b64)} chars")
+        print(f"  📋 Base64 NDVI: {len(ndvi_b64)} chars")
         
         # 4. Análise via GPT-4o Vision
         ai_report = await ai_vision.analyze_with_gpt4o_vision(
@@ -95,11 +105,11 @@ async def analyze_satellite_image(req: AIAnalysisRequest) -> AIAnalysisResponse:
                 cloudCover=scene.cloudCover,
                 satelliteType=scene.satelliteType
             ),
-            analysisImages={
+            images={
                 "truecolor": truecolor_b64,
                 "ndvi": ndvi_b64
             },
-            aiReport=ai_report,
+            analysis=ai_report,
             metadata={
                 "processingTime": f"{processing_time}s",
                 "gptModel": "gpt-4o",
