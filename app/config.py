@@ -11,8 +11,8 @@ class Settings(BaseSettings):
     )
 
     # Credenciais CDSE
-    cdse_client_id: str = ""
-    cdse_client_secret: str = ""
+    cdse_client_id: str = "sh-5ec0af89-a3cf-4a8e-8061-13297f73eb84"  # TEMPORÁRIO - para testes
+    cdse_client_secret: str = "vbJi7vwMuVifsH7sZaBLxCPzEzztB0dm"  # TEMPORÁRIO - para testes
 
     # URLs CDSE
     token_url: str = (
@@ -27,6 +27,9 @@ class Settings(BaseSettings):
 
     # Heurística hasData
     has_data_threshold_bytes: int = 1500
+
+    # OpenAI API (para análise via GPT-4o Vision)
+    openai_api_key: str = "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"  # TEMPORÁRIO - para testes
 
     # CORS
     cors_origins: list[str] = ["*"]
