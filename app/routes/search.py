@@ -8,7 +8,7 @@ POST /api/search/optical  — busca mesclada Sentinel-2 + Landsat
 from fastapi import APIRouter, HTTPException
 
 from app.models.schemas import OpticalSearchRequest, ScenesResponse, SearchRequest
-from app.services import stac
+from app.services import stac, tiler
 
 router = APIRouter()
 
@@ -23,13 +23,20 @@ async def search(req: SearchRequest) -> ScenesResponse:
     - **sentinel1**: ordenado por data (mais recente primeiro)
     """
     try:
-        scenes = await stac.search_scenes(
-            bbox=req.bbox,
-            start=req.start,
-            end=req.end,
-            satellite_type=req.satelliteType,
-            max_cloud_cover=req.maxCloudCover,
-        )
+        if req.satelliteType == "cbers4a":
+            scenes = await tiler.search_cbers4a_scenes(
+                bbox=req.bbox,
+                start=req.start,
+                end=req.end,
+            )
+        else:
+            scenes = await stac.search_scenes(
+                bbox=req.bbox,
+                start=req.start,
+                end=req.end,
+                satellite_type=req.satelliteType,
+                max_cloud_cover=req.maxCloudCover,
+            )
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Erro ao consultar STAC: {exc}") from exc
 

@@ -7,7 +7,7 @@ POST /api/hasData — verifica se há dados reais na bbox/data; retorna true/fal
 from fastapi import APIRouter, HTTPException
 
 from app.models.schemas import HasDataRequest
-from app.services import process_api
+from app.services import process_api, tiler
 
 router = APIRouter()
 
@@ -22,11 +22,14 @@ async def has_data(req: HasDataRequest) -> bool:
     (`HAS_DATA_THRESHOLD_BYTES`); `false` caso contrário ou em caso de erro.
     """
     try:
-        result = await process_api.check_has_data(
-            bbox=req.bbox,
-            date=req.date,
-            satellite_type=req.satelliteType,
-        )
+        if req.satelliteType == "cbers4a":
+            result = await tiler.has_data_cbers4a(bbox=req.bbox, date=req.date)
+        else:
+            result = await process_api.check_has_data(
+                bbox=req.bbox,
+                date=req.date,
+                satellite_type=req.satelliteType,
+            )
     except Exception as exc:
         raise HTTPException(
             status_code=502, detail=f"Erro ao verificar dados: {exc}"

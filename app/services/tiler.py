@@ -188,3 +188,75 @@ async def render_cbers4a(
         image_cache.set(cache_key, result)
 
     return result
+
+
+async def search_cbers4a_scenes(
+    bbox: list[float],
+    start: str,
+    end: str,
+) -> list:
+    """
+    Busca cenas CBERS-4A no STAC para o intervalo de datas informado.
+    Retorna lista de Scene ordenada por data decrescente.
+    """
+    from app.models.schemas import Scene
+
+    settings = get_settings()
+    body = {
+        "collections": [settings.cbers4a_collection],
+        "bbox": bbox,
+        "datetime": f"{start}/{end}",
+        "limit": 50,
+    }
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(settings.cbers4a_stac_url, json=body, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+
+    scenes = []
+    for f in data.get("features", []):
+        props = f.get("properties", {})
+        assets = f.get("assets", {})
+        thumb = assets.get("thumbnail", {})
+        thumbnail = thumb.get("href") if isinstance(thumb, dict) else None
+        scenes.append(
+            Scene(
+                id=f["id"],
+                date=props.get("datetime", ""),
+                cloudCover=float(props.get("eo:cloud_cover", 0)),
+                thumbnailHref=thumbnail,
+                satelliteType="cbers4a",
+            )
+        )
+
+    scenes.sort(key=lambda s: s.date, reverse=True)
+    return scenes
+
+
+async def has_data_cbers4a(bbox: list[float], date: str) -> bool:
+    """
+    Verifica se há dados CBERS-4A na bbox e data via STAC (limit=1).
+    Usa a mesma janela de tempo do render (cbers4a_time_window_days).
+    """
+    settings = get_settings()
+    date_obj = datetime.fromisoformat(date.replace("Z", ""))
+    delta = timedelta(days=settings.cbers4a_time_window_days)
+    from_dt = (date_obj - delta).strftime("%Y-%m-%dT00:00:00Z")
+    to_dt = (date_obj + delta).strftime("%Y-%m-%dT23:59:59Z")
+
+    body = {
+        "collections": [settings.cbers4a_collection],
+        "bbox": bbox,
+        "datetime": f"{from_dt}/{to_dt}",
+        "limit": 1,
+    }
+
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(settings.cbers4a_stac_url, json=body, timeout=30)
+            resp.raise_for_status()
+            data = resp.json()
+        return len(data.get("features", [])) > 0
+    except Exception:
+        return False

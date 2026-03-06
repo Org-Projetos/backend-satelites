@@ -14,6 +14,7 @@ BBox = Annotated[
 ]
 
 SatelliteType = Literal["sentinel2", "landsat", "sentinel1"]
+AllSatelliteType = Literal["sentinel2", "landsat", "sentinel1", "cbers4a"]
 OpticalSatelliteType = Literal["sentinel2", "landsat"]
 TilerSatelliteType = Literal["cbers4a"]
 VisualTypeOptical = Literal["truecolor", "falsecolor", "ndvi", "evi", "swir", "ndmi", "ndwi"]
@@ -29,7 +30,7 @@ class SearchRequest(BaseModel):
     start: str = Field(..., description="Data inicial ISO 8601 (YYYY-MM-DD ou YYYY-MM-DDTHH:MM:SSZ)")
     end: str = Field(..., description="Data final ISO 8601")
     maxCloudCover: float = Field(80, ge=0, le=100, description="% máxima de nuvens (0-100)")
-    satelliteType: SatelliteType
+    satelliteType: AllSatelliteType
 
 
 class OpticalSearchRequest(BaseModel):
@@ -56,7 +57,7 @@ class ScenesResponse(BaseModel):
 class HasDataRequest(BaseModel):
     bbox: BBox
     date: str = Field(..., description="Data central ISO 8601 (YYYY-MM-DD)")
-    satelliteType: SatelliteType
+    satelliteType: AllSatelliteType
 
 
 # ─── Renderização ────────────────────────────────────────────────────────────
