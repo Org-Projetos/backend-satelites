@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.cache import image_cache
 from app.config import get_settings
-from app.routes import cloud_cover, has_data, render, search, thumbnail
+from app.routes import cloud_cover, has_data, render, search, thumbnail, analysis
 
 
 def create_app() -> FastAPI:
@@ -55,6 +55,7 @@ def create_app() -> FastAPI:
     app.include_router(has_data.router, prefix="/api", tags=["Verificação de Dados"])
     app.include_router(thumbnail.router, prefix="/api", tags=["Thumbnail (Proxy)"])
     app.include_router(cloud_cover.router, prefix="/api", tags=["Cobertura de Nuvens"])
+    app.include_router(analysis.router, prefix="/api", tags=["Análise via IA"])
 
     @app.get("/health", tags=["Health"])
     async def health_check() -> dict:

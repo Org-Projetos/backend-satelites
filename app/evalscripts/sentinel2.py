@@ -5,7 +5,11 @@ function setup() {
   return { input: ["B04", "B03", "B02"], output: { bands: 3 } };
 }
 function evaluatePixel(s) {
-  return [2.5 * s.B04, 2.5 * s.B03, 2.5 * s.B02];
+  // Normalização mais robusta para cor natural
+  var red = Math.min(1, Math.max(0, 3.5 * s.B04));
+  var green = Math.min(1, Math.max(0, 3.5 * s.B03));
+  var blue = Math.min(1, Math.max(0, 3.5 * s.B02));
+  return [red, green, blue];
 }
 """
 
@@ -14,7 +18,10 @@ function setup() {
   return { input: ["B08", "B04", "B03"], output: { bands: 3 } };
 }
 function evaluatePixel(s) {
-  return [2.5 * s.B08, 2.5 * s.B04, 2.5 * s.B03];
+  var red = Math.min(1, Math.max(0, 3.5 * s.B08));
+  var green = Math.min(1, Math.max(0, 3.5 * s.B04));
+  var blue = Math.min(1, Math.max(0, 3.5 * s.B03));
+  return [red, green, blue];
 }
 """
 
@@ -27,14 +34,21 @@ function evaluatePixel(s) {
   return ndviColor(ndvi);
 }
 function ndviColor(v) {
-  if (v < -0.5) return [0.05, 0.05, 0.05];
-  if (v < 0.00) return [0.75, 0.75, 0.75];
-  if (v < 0.10) return [1.00, 0.98, 0.72];
-  if (v < 0.20) return [0.86, 0.94, 0.44];
-  if (v < 0.30) return [0.57, 0.84, 0.30];
-  if (v < 0.40) return [0.32, 0.70, 0.22];
-  if (v < 0.50) return [0.13, 0.54, 0.14];
-  return [0.01, 0.36, 0.07];
+  // Água e solo nu (-1 a 0)
+  if (v < -0.2) return [0.0, 0.0, 0.8];  // Azul para água
+  if (v < 0.0) return [0.65, 0.35, 0.0]; // Marrom para solo
+  
+  // Vegetação esparsa (0 a 0.3)
+  if (v < 0.1) return [1.0, 0.9, 0.6];   // Amarelo claro
+  if (v < 0.2) return [0.9, 0.8, 0.3];   // Amarelo
+  if (v < 0.3) return [0.7, 0.9, 0.4];   // Verde claro
+  
+  // Vegetação densa (0.3 a 1.0)
+  if (v < 0.4) return [0.5, 0.8, 0.3];   // Verde
+  if (v < 0.6) return [0.3, 0.7, 0.2];   // Verde escuro
+  if (v < 0.8) return [0.1, 0.5, 0.1];   // Verde muito escuro
+  
+  return [0.0, 0.3, 0.0];                 // Verde muito denso
 }
 """
 
