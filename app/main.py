@@ -1,13 +1,21 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.auth.jwt_auth import get_current_user
+from app.auth.users import user_store
 from app.cache import image_cache
 from app.config import get_settings
+from app.db import init_db
 from app.routes import cloud_cover, has_data, render, search, thumbnail, analysis
+from app.routes.auth import router as auth_router
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
+
+    # Inicializa o banco (CREATE TABLE IF NOT EXISTS) e semeia o admin
+    init_db(settings.database_url)
+    user_store.seed_admin(settings.admin_username, settings.admin_password)
 
     app = FastAPI(
         title="Agro Satélite — Backend",
@@ -50,12 +58,17 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    app.include_router(search.router, prefix="/api", tags=["Busca de Cenas (STAC)"])
-    app.include_router(render.router, prefix="/api", tags=["Renderização (Process API)"])
-    app.include_router(has_data.router, prefix="/api", tags=["Verificação de Dados"])
-    app.include_router(thumbnail.router, prefix="/api", tags=["Thumbnail (Proxy)"])
-    app.include_router(cloud_cover.router, prefix="/api", tags=["Cobertura de Nuvens"])
-    app.include_router(analysis.router, prefix="/api", tags=["Análise via IA"])
+    # Rotas públicas: autenticação
+    app.include_router(auth_router)
+
+    # Rotas protegidas: todas as rotas /api/* exigem JWT válido
+    protected = {"dependencies": [Depends(get_current_user)]}
+    app.include_router(search.router, prefix="/api", tags=["Busca de Cenas (STAC)"], **protected)
+    app.include_router(render.router, prefix="/api", tags=["Renderização (Process API)"], **protected)
+    app.include_router(has_data.router, prefix="/api", tags=["Verificação de Dados"], **protected)
+    app.include_router(thumbnail.router, prefix="/api", tags=["Thumbnail (Proxy)"], **protected)
+    app.include_router(cloud_cover.router, prefix="/api", tags=["Cobertura de Nuvens"], **protected)
+    app.include_router(analysis.router, prefix="/api", tags=["Análise via IA"], **protected)
 
     @app.get("/health", tags=["Health"])
     async def health_check() -> dict:

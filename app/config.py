@@ -53,6 +53,17 @@ class Settings(BaseSettings):
 
     debug: bool = False
 
+    # ── Banco de dados ────────────────────────────────────────────────────────
+    database_url: str = "postgresql://agro:agro_secret@localhost:5432/agro"
+
+    # ── Autenticação JWT ──────────────────────────────────────────────────────
+    secret_key: str = "change-this-secret-in-production"
+    access_token_expire_minutes: int = 60
+
+    # Usuário administrador padrão (pode ser sobrescrito pelo .env)
+    admin_username: str = "admin"
+    admin_password: str = "agro2024"
+
 
 @lru_cache
 def get_settings() -> Settings:
