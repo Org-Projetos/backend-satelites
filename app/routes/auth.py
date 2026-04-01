@@ -1,9 +1,10 @@
 """
 Endpoints de autenticação de usuários.
 
-POST /auth/login   → recebe username/password, retorna JWT
-POST /auth/register → registra novo usuário (requer admin)
-GET  /auth/me      → retorna dados do usuário autenticado
+POST /auth/login    → recebe username/password, retorna JWT
+POST /auth/signup   → auto-cadastro público (sem autenticação)
+POST /auth/register → registra novo usuário (requer token de admin)
+GET  /auth/me       → retorna dados do usuário autenticado
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status

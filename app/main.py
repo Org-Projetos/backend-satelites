@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -9,24 +11,91 @@ from app.db import init_db
 from app.routes import cloud_cover, has_data, render, search, thumbnail, analysis
 from app.routes.auth import router as auth_router
 
+_OPENAPI_TAGS = [
+    {
+        "name": "Autenticação",
+        "description": (
+            "Login, registro e consulta de dados do usuário. "
+            "Use **POST /auth/login** para obter o token JWT e clique em **Authorize** "
+            "(cadeado) para autenticar todas as rotas protegidas."
+        ),
+    },
+    {
+        "name": "Busca de Cenas (STAC)",
+        "description": (
+            "Consulta o catálogo STAC do Copernicus Data Space (CDSE) "
+            "e retorna metadados das cenas disponíveis para a bbox e período informados."
+        ),
+    },
+    {
+        "name": "Renderização (Process API)",
+        "description": (
+            "Gera imagens PNG a partir da Process API do CDSE ou via tiler COG (CBERS-4A). "
+            "Suporta visualizações ópticas (truecolor, NDVI, EVI, SWIR…) e SAR (VV, VH, RVI)."
+        ),
+    },
+    {
+        "name": "Verificação de Dados",
+        "description": "Verifica se há dados de satélite disponíveis para uma bbox e data.",
+    },
+    {
+        "name": "Thumbnail (Proxy)",
+        "description": (
+            "Proxy autenticado para thumbnails do CDSE. "
+            "Protegido contra SSRF — aceita apenas domínios `*.dataspace.copernicus.eu`."
+        ),
+    },
+    {
+        "name": "Cobertura de Nuvens",
+        "description": (
+            "Calcula a porcentagem de nuvens dentro da bbox usando a banda SCL "
+            "(Scene Classification Layer) do Sentinel-2 L2A."
+        ),
+    },
+    {
+        "name": "Análise via IA",
+        "description": (
+            "Seleciona automaticamente a melhor cena disponível, renderiza imagens "
+            "truecolor e NDVI e envia para o GPT-4o Vision para análise agrícola."
+        ),
+    },
+    {
+        "name": "Health",
+        "description": "Verificação de saúde do serviço.",
+    },
+]
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):  # noqa: ARG001
+    """Inicializa o banco e semeia o admin antes de aceitar requisições."""
+    settings = get_settings()
+    init_db(settings.database_url)
+    user_store.seed_admin(settings.admin_username, settings.admin_password)
+    yield
+
 
 def create_app() -> FastAPI:
     settings = get_settings()
 
-    # Inicializa o banco (CREATE TABLE IF NOT EXISTS) e semeia o admin
-    init_db(settings.database_url)
-    user_store.seed_admin(settings.admin_username, settings.admin_password)
-
     app = FastAPI(
+        lifespan=_lifespan,
         title="Agro Satélite — Backend",
         description=(
-            "Proxy seguro para o Copernicus Data Space Ecosystem (CDSE). "
-            "Gerencia autenticação, busca de cenas STAC, renderização via Process API "
-            "e verificação de cobertura de nuvens."
+            "Proxy seguro para o **Copernicus Data Space Ecosystem (CDSE)**.\n\n"
+            "Gerencia autenticação JWT, busca de cenas STAC, renderização via Process API "
+            "e verificação de cobertura de nuvens.\n\n"
+            "### Como autenticar\n"
+            "1. Chame **POST /auth/login** com `username` e `password`.\n"
+            "2. Copie o `access_token` retornado.\n"
+            "3. Clique em **Authorize** (cadeado) e cole o token no campo **Value** "
+            "(sem o prefixo `Bearer`)."
         ),
         version="1.0.0",
+        openapi_tags=_OPENAPI_TAGS,
         docs_url="/docs",
         redoc_url="/redoc",
+        swagger_ui_parameters={"persistAuthorization": True},
     )
 
     # Rate limiting por IP
@@ -62,7 +131,12 @@ def create_app() -> FastAPI:
     app.include_router(auth_router)
 
     # Rotas protegidas: todas as rotas /api/* exigem JWT válido
-    protected = {"dependencies": [Depends(get_current_user)]}
+    _err_401 = {"description": "Token ausente, inválido ou expirado"}
+    _err_502 = {"description": "Erro ao comunicar com o serviço externo (CDSE / OpenAI)"}
+    protected = {
+        "dependencies": [Depends(get_current_user)],
+        "responses": {401: _err_401, 502: _err_502},
+    }
     app.include_router(search.router, prefix="/api", tags=["Busca de Cenas (STAC)"], **protected)
     app.include_router(render.router, prefix="/api", tags=["Renderização (Process API)"], **protected)
     app.include_router(has_data.router, prefix="/api", tags=["Verificação de Dados"], **protected)
