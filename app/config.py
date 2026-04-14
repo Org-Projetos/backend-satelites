@@ -64,6 +64,12 @@ class Settings(BaseSettings):
     admin_username: str = "admin"
     admin_password: str = "agro2024"
 
+    # ── MinIO (Object Storage) ────────────────────────────────────────────────
+    minio_endpoint: str = "minio:9000"
+    minio_access_key: str = "minioadmin"
+    minio_secret_key: str = "minioadmin_secret"
+    minio_bucket: str = "agro-images"
+
 
 @lru_cache
 def get_settings() -> Settings:

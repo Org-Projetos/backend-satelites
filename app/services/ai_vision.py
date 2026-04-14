@@ -62,6 +62,7 @@ async def analyze_with_gpt4o_vision(
     area_hectares: float,
     date: str,
     bbox: list[float],
+    custom_prompt: str | None = None,
 ) -> str:
     """
     Envia imagens para GPT-4o Vision e recebe relatório de análise.
@@ -72,6 +73,7 @@ async def analyze_with_gpt4o_vision(
         area_hectares: Área em hectares
         date: Data da análise
         bbox: Coordenadas da área
+        custom_prompt: Prompt customizado (opcional). Se não fornecido, usa o template padrão.
     
     Returns:
         Relatório gerado pela IA
@@ -85,12 +87,16 @@ async def analyze_with_gpt4o_vision(
             "Configure a variável OPENAI_API_KEY no arquivo .env"
         )
     
-    # Prepara o prompt com os dados específicos
-    prompt = AI_ANALYSIS_PROMPT.format(
-        area_hectares=area_hectares,
-        date=date,
-        bbox=bbox
-    )
+    # Usa prompt customizado ou padrão
+    if custom_prompt:
+        prompt = custom_prompt
+    else:
+        # Prepara o prompt com os dados específicos
+        prompt = AI_ANALYSIS_PROMPT.format(
+            area_hectares=area_hectares,
+            date=date,
+            bbox=bbox
+        )
     
     # Prepara as mensagens para a API
     messages = [

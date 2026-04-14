@@ -10,6 +10,9 @@ from app.config import get_settings
 from app.db import init_db
 from app.routes import cloud_cover, has_data, render, search, thumbnail, analysis
 from app.routes.auth import router as auth_router
+from app.routes.schedules import router as schedules_router
+from app.scheduler import get_scheduler
+from app.services.minio_client import get_minio_client
 
 _OPENAPI_TAGS = [
     {
@@ -60,6 +63,13 @@ _OPENAPI_TAGS = [
         ),
     },
     {
+        "name": "Análises Agendadas",
+        "description": (
+            "Gerencia análises automáticas semanais. "
+            "Salva configuração, imagens no MinIO e histórico de resultados."
+        ),
+    },
+    {
         "name": "Health",
         "description": "Verificação de saúde do serviço.",
     },
@@ -68,15 +78,28 @@ _OPENAPI_TAGS = [
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):  # noqa: ARG001
-    """Inicializa o banco e semeia o admin antes de aceitar requisições."""
+    """Inicializa o banco, MinIO e inicia o agendador."""
     settings = get_settings()
     init_db(settings.database_url)
     user_store.seed_admin(settings.admin_username, settings.admin_password)
+    
+    # Inicializa MinIO
+    minio_client = get_minio_client()
+    print("✅ MinIO inicializado")
+    
+    # Inicia agendador de análises
+    scheduler = get_scheduler()
+    scheduler.start()
+    
     yield
+    
+    # Cleanup: para o agendador
+    scheduler.stop()
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
+
 
     app = FastAPI(
         lifespan=_lifespan,
@@ -143,6 +166,7 @@ def create_app() -> FastAPI:
     app.include_router(thumbnail.router, prefix="/api", tags=["Thumbnail (Proxy)"], **protected)
     app.include_router(cloud_cover.router, prefix="/api", tags=["Cobertura de Nuvens"], **protected)
     app.include_router(analysis.router, prefix="/api", tags=["Análise via IA"], **protected)
+    app.include_router(schedules_router, prefix="/api", tags=["Análises Agendadas"], **protected)
 
     @app.get("/health", tags=["Health"])
     async def health_check() -> dict:
