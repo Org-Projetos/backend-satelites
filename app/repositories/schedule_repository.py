@@ -217,18 +217,23 @@ class AnalysisHistoryRepository:
         """Converte uma linha do banco em resposta."""
         from app.models.schedules_schemas import SelectedSceneInfo
 
+        # Se a análise falhou, scene_id pode ser None
+        scene_info = None
+        if row.scene_id:
+            scene_info = SelectedSceneInfo(
+                id=row.scene_id,
+                date=row.scene_date or "",
+                cloud_cover=row.scene_cloud_cover or 0.0,
+                satellite_type=row.scene_satellite_type or "unknown",
+            )
+
         return AnalysisHistoryResponse(
             id=row.id,
             schedule_id=row.schedule_id,
             execution_date=row.execution_date,
-            scene=SelectedSceneInfo(
-                id=row.scene_id,
-                date=row.scene_date,
-                cloud_cover=row.scene_cloud_cover,
-                satellite_type=row.scene_satellite_type,
-            ),
-            images=row.images,
-            analysis=row.analysis,
+            scene=scene_info,
+            images=row.images or {},
+            analysis=row.analysis or "",
             processing_time=row.processing_time,
             status=row.status,
             error_message=row.error_message,

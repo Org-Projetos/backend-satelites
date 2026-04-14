@@ -66,6 +66,20 @@ class AnalysisScheduler:
 
         print(f"\n✅ Análises semanais concluídas em {datetime.utcnow().isoformat()}\n")
 
+    def _run_weekly_analyses_for_schedule(self, schedule):
+        """
+        Versão síncrona para rodar análise de um schedule.
+        Ideal para chamar de threads que não têm event loop.
+        """
+        print(f"\n📊 Iniciando análise para schedule {schedule.id}")
+        try:
+            asyncio.run(self._process_schedule(schedule))
+            print(f"✅ Análise concluída para {schedule.id}\n")
+        except Exception as e:
+            print(f"❌ Erro ao processar {schedule.id}: {e}\n")
+            import traceback
+            traceback.print_exc()
+
     async def _process_schedule(self, schedule):
         """Processa uma análise agendada."""
         start_time = datetime.utcnow()

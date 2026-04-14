@@ -12,7 +12,7 @@ POST /schedules/test/run     → (TESTE) forçar execução do scheduler agora
 
 import asyncio
 import threading
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from app.auth.jwt_auth import get_current_user
 from app.auth.users import User, user_store
 from app.models.schedules_schemas import (
@@ -47,26 +47,26 @@ async def list_schedules(current_user: User = Depends(get_current_user)):
 async def create_schedule(
     body: AnalysisScheduleCreate,
     current_user: User = Depends(get_current_user),
+    background_tasks: BackgroundTasks = None,
 ):
     """Cria uma nova análise agendada semanal e executa a primeira análise imediatamente."""
     repo = get_schedule_repository()
     schedule = repo.create(current_user.username, body)
     
     # 🚀 Dispara análise inicial em background (não bloqueia a resposta HTTP)
-    def run_initial_analysis():
-        try:
-            print(f"\n🚀 [NOVA ANÁLISE] Iniciando primeira análise para schedule {schedule.id}...")
-            scheduler = get_scheduler()
-            asyncio.run(scheduler._process_schedule(schedule))
-            print(f"✅ [NOVA ANÁLISE] Primeira análise concluída para {schedule.id}")
-        except Exception as e:
-            print(f"❌ [NOVA ANÁLISE] Erro na primeira análise: {e}")
-            import traceback
-            traceback.print_exc()
-    
-    # Inicia em thread separada para não bloquear a resposta HTTP
-    thread = threading.Thread(target=run_initial_analysis, daemon=True)
-    thread.start()
+    if background_tasks:
+        def run_initial_analysis_sync():
+            try:
+                print(f"\n🚀 [NOVA ANÁLISE] Iniciando primeira análise para schedule {schedule.id}...")
+                scheduler = get_scheduler()
+                scheduler._run_weekly_analyses_for_schedule(schedule)
+                print(f"✅ [NOVA ANÁLISE] Primeira análise concluída para {schedule.id}")
+            except Exception as e:
+                print(f"❌ [NOVA ANÁLISE] Erro na primeira análise: {e}")
+                import traceback
+                traceback.print_exc()
+        
+        background_tasks.add_task(run_initial_analysis_sync)
     
     return schedule
 

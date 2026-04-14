@@ -59,9 +59,9 @@ class AnalysisHistoryResponse(BaseModel):
     id: str
     schedule_id: str
     execution_date: datetime
-    scene: SelectedSceneInfo
+    scene: Optional[SelectedSceneInfo] = None
     images: dict[str, str] = Field(..., description="Mapeamento de tipo para URL: {'truecolor': 'url', 'ndvi': 'url'}")
-    analysis: dict = Field(..., description="Resultado da análise JSON")
+    analysis: str = Field(..., description="Resultado da análise (relatório em texto do GPT-4o Vision)")
     processing_time: str
     status: str  # "success", "failed"
     error_message: Optional[str] = None
