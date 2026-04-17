@@ -11,6 +11,8 @@ from app.db import init_db
 from app.routes import cloud_cover, has_data, render, search, thumbnail, analysis
 from app.routes.auth import router as auth_router
 from app.routes.schedules import router as schedules_router
+from app.routes.areas import router as areas_router
+from app.routes.users import router as users_router
 from app.scheduler import get_scheduler
 from app.services.minio_client import get_minio_client
 
@@ -67,6 +69,21 @@ _OPENAPI_TAGS = [
         "description": (
             "Gerencia análises automáticas semanais. "
             "Salva configuração, imagens no MinIO e histórico de resultados."
+        ),
+    },
+    {
+        "name": "Usuários",
+        "description": (
+            "Gerenciamento de usuários pelo administrador. "
+            "Apenas admins podem listar, criar, alterar senha e remover usuários."
+        ),
+    },
+    {
+        "name": "Áreas",
+        "description": (
+            "Gerenciamento de áreas geográficas. "
+            "Admin pode criar, editar, excluir e atribuir usuários às áreas. "
+            "Usuários veem apenas as áreas que o admin atribuiu a eles."
         ),
     },
     {
@@ -167,6 +184,8 @@ def create_app() -> FastAPI:
     app.include_router(cloud_cover.router, prefix="/api", tags=["Cobertura de Nuvens"], **protected)
     app.include_router(analysis.router, prefix="/api", tags=["Análise via IA"], **protected)
     app.include_router(schedules_router, prefix="/api", tags=["Análises Agendadas"], **protected)
+    app.include_router(areas_router, prefix="/api", tags=["Áreas"], **protected)
+    app.include_router(users_router, prefix="/api", tags=["Usuários"], **protected)
 
     @app.get("/health", tags=["Health"])
     async def health_check() -> dict:

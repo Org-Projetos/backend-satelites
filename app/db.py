@@ -20,6 +20,7 @@ from sqlalchemy import (
     DateTime,
     JSON,
     ForeignKey,
+    UniqueConstraint,
     create_engine,
 )
 from sqlalchemy.engine import Engine
@@ -64,6 +65,31 @@ analysis_history_table = Table(
     Column("status", String(20), nullable=False, server_default="success"),  # "success" ou "failed"
     Column("error_message", String(65535), nullable=True),  # Erros podem ser muito longos com stack trace
     Column("created_at", DateTime, nullable=False, server_default="now()"),
+)
+
+# Áreas geográficas definidas pelo admin. Cada área tem um bbox e coordenadas GeoJSON.
+areas_table = Table(
+    "areas",
+    metadata,
+    Column("id", String(36), primary_key=True),  # UUID
+    Column("name", String(128), nullable=False),
+    Column("description", String(512), nullable=True),
+    Column("bbox", ARRAY(Float), nullable=False),  # [min_lon, min_lat, max_lon, max_lat]
+    Column("coordinates", JSON, nullable=True),  # GeoJSON polygon [[lon, lat], ...]
+    Column("area_hectares", Float, nullable=True),
+    Column("created_by", String(64), ForeignKey("users.username"), nullable=False),
+    Column("created_at", DateTime, nullable=False, server_default="now()"),
+    Column("updated_at", DateTime, nullable=False, server_default="now()"),
+)
+
+# Atribuições: quais usuários podem acessar qual área (definido pelo admin).
+area_assignments_table = Table(
+    "area_assignments",
+    metadata,
+    Column("area_id", String(36), ForeignKey("areas.id", ondelete="CASCADE"), nullable=False),
+    Column("username", String(64), ForeignKey("users.username", ondelete="CASCADE"), nullable=False),
+    Column("assigned_at", DateTime, nullable=False, server_default="now()"),
+    UniqueConstraint("area_id", "username", name="uq_area_user"),
 )
 
 _engine: Engine | None = None

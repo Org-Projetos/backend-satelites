@@ -116,6 +116,32 @@ class UserStore:
             return None
         return user
 
+    def update_password(self, username: str, new_plain_password: str) -> bool:
+        """Atualiza a senha do usuário. Retorna False se o usuário não existir."""
+        engine = get_engine()
+        with engine.begin() as conn:
+            result = conn.execute(
+                users_table.update()
+                .where(users_table.c.username == username)
+                .values(hashed_password=_hash_password(new_plain_password))
+            )
+        return result.rowcount > 0
+
+    def delete(self, username: str) -> bool:
+        """Remove o usuário. Retorna False se não existir."""
+        engine = get_engine()
+        with engine.begin() as conn:
+            result = conn.execute(
+                users_table.delete().where(users_table.c.username == username)
+            )
+        return result.rowcount > 0
+
+    def list_all(self) -> list[User]:
+        engine = get_engine()
+        with engine.connect() as conn:
+            rows = conn.execute(select(users_table)).fetchall()
+        return [User(username=r.username, hashed_password=r.hashed_password, is_admin=r.is_admin) for r in rows]
+
 
 # Instância global — usada em todo o app
 user_store = UserStore()

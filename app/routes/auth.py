@@ -2,15 +2,18 @@
 Endpoints de autenticação de usuários.
 
 POST /auth/login    → recebe username/password, retorna JWT
-POST /auth/signup   → auto-cadastro público (sem autenticação)
 POST /auth/register → registra novo usuário (requer token de admin)
+POST /auth/logout   → invalida o token atual (blacklist)
 GET  /auth/me       → retorna dados do usuário autenticado
 """
+
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
-from app.auth.jwt_auth import create_access_token, get_current_user
+from app.auth.jwt_auth import create_access_token, get_current_user, get_token_and_expiry
+from app.auth.token_blacklist import token_blacklist
 from app.auth.users import User, user_store
 from app.config import Settings, get_settings
 
@@ -82,18 +85,20 @@ def register(
 
 
 @router.post(
-    "/signup",
-    response_model=UserResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Criar conta (auto-cadastro)",
+    "/logout",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Logout — invalida o token atual",
 )
-def signup(body: RegisterRequest) -> UserResponse:
-    """Cria uma nova conta de usuário sem exigir autenticação."""
-    try:
-        new_user = user_store.register(body.username, body.password)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
-    return UserResponse(username=new_user.username, is_admin=new_user.is_admin)
+def logout(
+    token_info: tuple[str, datetime] = Depends(get_token_and_expiry),
+    _current_user: User = Depends(get_current_user),
+) -> None:
+    """
+    Adiciona o token à blacklist. Qualquer requisição futura com este token
+    recebe 401, mesmo antes de ele expirar naturalmente.
+    """
+    token, expiry = token_info
+    token_blacklist.add(token, expiry)
 
 
 @router.get("/me", response_model=UserResponse, summary="Dados do usuário atual")

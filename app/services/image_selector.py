@@ -5,7 +5,7 @@ Serviço para seleção automática da melhor imagem de satélite.
 from typing import Optional
 
 from app.models.schemas import Scene
-from app.services import stac, process_api
+from app.services import stac
 
 
 async def select_best_scene(
@@ -62,60 +62,32 @@ async def select_best_scene(
                 print(f"❌ Nenhuma cena encontrada na janela de ±{window_days} dias")
                 continue  # Tenta próxima janela
             
-            # Avalia cada cena usando o endpoint cloudCover
+            # Avalia cada cena usando o cloudCover já retornado pelo STAC
             best_scene = None
-            best_score = float('inf')  # Menor é melhor
+            best_score = float('inf')
             acceptable_scenes = []
-            
-            print(f"🔎 Avaliando {len(scenes)} cenas...")
+
+            print(f"🔎 Avaliando {len(scenes)} cenas (cloudCover do STAC)...")
             for i, scene in enumerate(scenes):
-                print(f"  📸 Cena {i+1}: {scene.id} - {scene.date} - {scene.cloudCover}% nuvens")
-                try:
-                    # Calcula cobertura real de nuvens na bbox
-                    cloud_cover = await process_api.cloud_cover_in_bbox(
-                        bbox=bbox,
-                        date=scene.date,
-                        scene_id=scene.id
-                    )
-                    print(f"    ☁️ Cobertura real calculada: {cloud_cover}%")
-                    
-                    # Pula se muitas nuvens
-                    if cloud_cover > max_cloud_cover:
-                        print(f"    ❌ Rejeitada: {cloud_cover}% > {max_cloud_cover}%")
-                        continue
-                    
-                    print(f"    ✅ Aceita: {cloud_cover}% ≤ {max_cloud_cover}%")
-                    acceptable_scenes.append(scene)
-                    
-                    # Calcula distância temporal da data alvo
-                    scene_date = datetime.fromisoformat(scene.date.split('T')[0])
-                    days_diff = abs((scene_date - target_date).days)
-                    
-                    # Score combinado: prioriza data próxima e poucas nuvens
-                    # Fórmula: dias_diferenca + (cloud_cover * 0.5)
-                    score = days_diff + (cloud_cover * 0.5)
-                    print(f"    📊 Score: {score} (dias: {days_diff}, nuvens: {cloud_cover}%)")
-                    
-                    if score < best_score:
-                        best_score = score
-                        best_scene = scene
-                        # Atualiza com cobertura real calculada
-                        best_scene.cloudCover = cloud_cover
-                        print(f"    🏆 Nova melhor cena!")
-                        
-                except Exception as e:
-                    print(f"    ❌ Erro ao calcular nuvens: {e}")
-                    # Se falhar cloudCover, usa valor do STAC e continua
-                    scene_date = datetime.fromisoformat(scene.date.split('T')[0])
-                    days_diff = abs((scene_date - target_date).days)
-                    score = days_diff + (scene.cloudCover * 0.5)
-                    
-                    if scene.cloudCover <= max_cloud_cover:
-                        acceptable_scenes.append(scene)
-                        if score < best_score:
-                            best_score = score
-                            best_scene = scene
-                            print(f"    ✅ Nova melhor cena (usando dados STAC)!")
+                cloud_cover = scene.cloudCover
+                print(f"  📸 Cena {i+1}: {scene.id} - {scene.date} - {cloud_cover}% nuvens")
+
+                if cloud_cover > max_cloud_cover:
+                    print(f"    ❌ Rejeitada: {cloud_cover}% > {max_cloud_cover}%")
+                    continue
+
+                print(f"    ✅ Aceita: {cloud_cover}% ≤ {max_cloud_cover}%")
+                acceptable_scenes.append(scene)
+
+                scene_date = datetime.fromisoformat(scene.date.split('T')[0])
+                days_diff = abs((scene_date - target_date).days)
+                score = days_diff + (cloud_cover * 0.5)
+                print(f"    📊 Score: {score} (dias: {days_diff}, nuvens: {cloud_cover}%)")
+
+                if score < best_score:
+                    best_score = score
+                    best_scene = scene
+                    print(f"    🏆 Nova melhor cena!")
             
             if best_scene:
                 print(f"� Sucesso! Melhor cena encontrada na janela de ±{window_days} dias:")
