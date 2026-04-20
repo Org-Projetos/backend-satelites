@@ -55,13 +55,19 @@ analysis_history_table = Table(
     Column("id", String(36), primary_key=True),  # UUID
     Column("schedule_id", String(36), ForeignKey("analysis_schedules.id"), nullable=False),
     Column("execution_date", DateTime, nullable=False),
-    Column("scene_id", String(256), nullable=True),
-    Column("scene_date", String(256), nullable=True),  # ISO timestamp (aumentado de 10)
-    Column("scene_cloud_cover", Float, nullable=True),
-    Column("scene_satellite_type", String(64), nullable=True),
-    Column("images", JSON, nullable=False),  # {"truecolor": "url/path", "ndvi": "url/path"}
-    Column("analysis", JSON, nullable=False),  # Resultado da análise
-    Column("processing_time", String(256), nullable=False),  # Ex: "45.23s" (aumentado de 100)
+    # Cena mais recente
+    Column("scene_recent_id", String(256), nullable=True),
+    Column("scene_recent_date", String(256), nullable=True),  # ISO timestamp
+    Column("scene_recent_cloud_cover", Float, nullable=True),
+    Column("scene_recent_satellite_type", String(64), nullable=True),
+    # Cena anterior (para comparação)
+    Column("scene_previous_id", String(256), nullable=True),
+    Column("scene_previous_date", String(256), nullable=True),  # ISO timestamp
+    Column("scene_previous_cloud_cover", Float, nullable=True),
+    Column("scene_previous_satellite_type", String(64), nullable=True),
+    # Análise
+    Column("analysis", String(65535), nullable=False),  # Resultado da análise em texto (aumentado de JSON)
+    Column("processing_time", String(256), nullable=False),  # Ex: "45.23s"
     Column("status", String(20), nullable=False, server_default="success"),  # "success" ou "failed"
     Column("error_message", String(65535), nullable=True),  # Erros podem ser muito longos com stack trace
     Column("created_at", DateTime, nullable=False, server_default="now()"),

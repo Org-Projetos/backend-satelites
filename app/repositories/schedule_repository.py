@@ -146,28 +146,34 @@ class AnalysisHistoryRepository:
         self,
         schedule_id: str,
         execution_date: datetime,
-        scene_id: str,
-        scene_date: str,
-        scene_cloud_cover: float,
-        scene_satellite_type: str,
-        images: dict,
-        analysis: dict,
+        scene_recent_id: str,
+        scene_recent_date: str,
+        scene_recent_cloud_cover: float,
+        scene_recent_satellite_type: str,
+        scene_previous_id: str | None,
+        scene_previous_date: str | None,
+        scene_previous_cloud_cover: float | None,
+        scene_previous_satellite_type: str | None,
+        analysis: str,
         processing_time: str,
         status: str = "success",
         error_message: str | None = None,
     ) -> str:
-        """Cria um novo registro de histórico de análise. Retorna o ID."""
+        """Cria um novo registro de histórico de análise (comparação de 2 cenas). Retorna o ID."""
         history_id = str(uuid4())
 
         stmt = analysis_history_table.insert().values(
             id=history_id,
             schedule_id=schedule_id,
             execution_date=execution_date,
-            scene_id=scene_id,
-            scene_date=scene_date,
-            scene_cloud_cover=scene_cloud_cover,
-            scene_satellite_type=scene_satellite_type,
-            images=images,
+            scene_recent_id=scene_recent_id,
+            scene_recent_date=scene_recent_date,
+            scene_recent_cloud_cover=scene_recent_cloud_cover,
+            scene_recent_satellite_type=scene_recent_satellite_type,
+            scene_previous_id=scene_previous_id,
+            scene_previous_date=scene_previous_date,
+            scene_previous_cloud_cover=scene_previous_cloud_cover,
+            scene_previous_satellite_type=scene_previous_satellite_type,
             analysis=analysis,
             processing_time=processing_time,
             status=status,
@@ -217,22 +223,32 @@ class AnalysisHistoryRepository:
         """Converte uma linha do banco em resposta."""
         from app.models.schedules_schemas import SelectedSceneInfo
 
-        # Se a análise falhou, scene_id pode ser None
-        scene_info = None
-        if row.scene_id:
-            scene_info = SelectedSceneInfo(
-                id=row.scene_id,
-                date=row.scene_date or "",
-                cloud_cover=row.scene_cloud_cover or 0.0,
-                satellite_type=row.scene_satellite_type or "unknown",
+        # Cena mais recente
+        scene_recent = None
+        if row.scene_recent_id:
+            scene_recent = SelectedSceneInfo(
+                id=row.scene_recent_id,
+                date=row.scene_recent_date or "",
+                cloud_cover=row.scene_recent_cloud_cover or 0.0,
+                satellite_type=row.scene_recent_satellite_type or "unknown",
+            )
+
+        # Cena anterior (para comparação)
+        scene_previous = None
+        if row.scene_previous_id:
+            scene_previous = SelectedSceneInfo(
+                id=row.scene_previous_id,
+                date=row.scene_previous_date or "",
+                cloud_cover=row.scene_previous_cloud_cover or 0.0,
+                satellite_type=row.scene_previous_satellite_type or "unknown",
             )
 
         return AnalysisHistoryResponse(
             id=row.id,
             schedule_id=row.schedule_id,
             execution_date=row.execution_date,
-            scene=scene_info,
-            images=row.images or {},
+            scene_recent=scene_recent,
+            scene_previous=scene_previous,
             analysis=row.analysis or "",
             processing_time=row.processing_time,
             status=row.status,

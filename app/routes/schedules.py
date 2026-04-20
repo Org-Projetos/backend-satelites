@@ -168,6 +168,55 @@ async def get_schedule_history(
     return history
 
 
+@router.get("/{schedule_id}/metrics", response_model=dict | None)
+async def get_schedule_metrics(
+    schedule_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Retorna dados estruturados/numéricos extraídos da última análise.
+    
+    Inclui:
+    - health_status: classificação (saudável/atenção/crítico)
+    - health_score: score numérico (0-100)
+    - vegetation_coverage_percent: % de cobertura vegetal
+    - problem_areas_percent: % de áreas com problemas
+    - trend: tendência (progredindo/regredindo/estável)
+    - trend_magnitude: magnitude da mudança (-100 a +100)
+    - key_findings: pontos principais
+    - recommendations: recomendações
+    """
+    schedule_repo = get_schedule_repository()
+    history_repo = get_history_repository()
+
+    # Verifica permissão
+    schedule = schedule_repo.get(schedule_id)
+    if not schedule:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Análise não encontrada",
+        )
+
+    if schedule.user_id != current_user.username:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Você não tem permissão para acessar esta análise",
+        )
+
+    # Pega o histórico mais recente
+    latest_history = history_repo.get_latest_by_schedule(schedule_id)
+    
+    if not latest_history or latest_history.status != "success":
+        return None
+    
+    # Extrai métricas da análise
+    from app.services.analysis_metrics import extract_metrics_from_analysis
+    
+    metrics = extract_metrics_from_analysis(latest_history.analysis)
+    
+    return metrics.model_dump()
+
+
 @router.post("/test/run", status_code=status.HTTP_200_OK, summary="[TESTE] Forçar execução do scheduler agora")
 async def test_run_scheduler(current_user: User = Depends(get_current_user)):
     """
