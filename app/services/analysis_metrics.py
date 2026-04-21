@@ -66,7 +66,7 @@ def _extract_health_status(text_lower: str, original_text: str) -> tuple[str, fl
     return "saudável", 75.0
 
 
-def _extract_vegetation_coverage(text_lower: str, original_text: str) -> float | None:
+def _extract_vegetation_coverage(text_lower: str, original_text: str) -> float:
     """Extrai % de cobertura vegetal."""
     
     import re
@@ -91,10 +91,15 @@ def _extract_vegetation_coverage(text_lower: str, original_text: str) -> float |
     if any(word in text_lower for word in ["boa cobertura", "cobertura verde", "predominância de tons verdes"]):
         return 75.0
     
-    return None
+    # Se menciona "crítico" ou "desmatamento", estima baixo
+    if any(word in text_lower for word in ["crítico", "desmatamento", "severamente", "perda significativa"]):
+        return 30.0
+    
+    # Default: estável/normal
+    return 60.0
 
 
-def _extract_problem_areas(text_lower: str, original_text: str) -> float | None:
+def _extract_problem_areas(text_lower: str, original_text: str) -> float:
     """Extrai % de áreas com problemas."""
     
     import re
@@ -117,8 +122,16 @@ def _extract_problem_areas(text_lower: str, original_text: str) -> float | None:
             return 15.0
         if "áreas significativas" in text_lower:
             return 35.0
+        
+        # Default quando há menção de problemas mas sem % específico
+        return 20.0
     
-    return None
+    # Se há menção de crítico/severo, assume 40% de problemas
+    if any(word in text_lower for word in ["crítico", "severo", "grave", "perda significativa"]):
+        return 40.0
+    
+    # Default: sem problemas detectados
+    return 5.0
 
 
 def _extract_trend(text_lower: str, original_text: str) -> tuple[str, float]:

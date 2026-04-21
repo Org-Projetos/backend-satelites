@@ -1,95 +1,35 @@
 """Evalscripts JavaScript para Sentinel-2 L2A (coleção: sentinel-2-l2a)."""
 
-# Função auxiliar para máscara de nuvens baseada em QA60
-_QA60_CLOUD_MASK = """
-function maskS2Clouds(image) {
-  var qa = image.select('QA60');
-  var cloudBit = 1 << 10;  // Bit 10
-  var cirrusBit = 1 << 11; // Bit 11
-  
-  var mask = qa.bitwiseAnd(cloudBit).eq(0)
-    .and(qa.bitwiseAnd(cirrusBit).eq(0));
-  
-  return image.updateMask(mask);
-}
-"""
-
 TRUECOLOR = """//VERSION=3
 function setup() {
-  return { input: ["B04", "B03", "B02", "QA60"], output: { bands: 3 } };
-}
-function maskS2Clouds(image) {
-  var qa = image.select('QA60');
-  var cloudBit = 1 << 10;
-  var cirrusBit = 1 << 11;
-  var mask = qa.bitwiseAnd(cloudBit).eq(0)
-    .and(qa.bitwiseAnd(cirrusBit).eq(0));
-  return image.updateMask(mask);
+  return { input: ["B04", "B03", "B02"], output: { bands: 3 } };
 }
 function evaluatePixel(s) {
-  maskS2Clouds({select: function(b) { return s[b]; }, 
-    bitwiseAnd: function(b) { return this; }, 
-    eq: function(v) { return this; },
-    and: function(x) { return this; },
-    updateMask: function(m) { }});
-  
   // Normalização mais robusta para cor natural
   var red = Math.min(1, Math.max(0, 3.5 * s.B04));
   var green = Math.min(1, Math.max(0, 3.5 * s.B03));
   var blue = Math.min(1, Math.max(0, 3.5 * s.B02));
-  
-  // Aplicar máscara simples de QA60
-  var qa = s.QA60;
-  var cloudBit = 1 << 10;
-  var cirrusBit = 1 << 11;
-  var isCloud = ((qa & cloudBit) || (qa & cirrusBit));
-  
-  if (isCloud) {
-    return [0.5, 0.5, 0.5];  // Cinza para nuvens
-  }
-  
   return [red, green, blue];
 }
 """
 
 FALSECOLOR = """//VERSION=3
 function setup() {
-  return { input: ["B08", "B04", "B03", "QA60"], output: { bands: 3 } };
+  return { input: ["B08", "B04", "B03"], output: { bands: 3 } };
 }
 function evaluatePixel(s) {
-  // Aplicar máscara QA60
-  var qa = s.QA60;
-  var cloudBit = 1 << 10;
-  var cirrusBit = 1 << 11;
-  var isCloud = ((qa & cloudBit) || (qa & cirrusBit));
-  
   var red = Math.min(1, Math.max(0, 3.5 * s.B08));
   var green = Math.min(1, Math.max(0, 3.5 * s.B04));
   var blue = Math.min(1, Math.max(0, 3.5 * s.B03));
-  
-  if (isCloud) {
-    return [0.5, 0.5, 0.5];  // Cinza para nuvens
-  }
-  
   return [red, green, blue];
 }
 """
 
 NDVI = """//VERSION=3
 function setup() {
-  return { input: ["B04", "B08", "QA60"], output: { bands: 3 } };
+  return { input: ["B04", "B08"], output: { bands: 3 } };
 }
 function evaluatePixel(s) {
-  // Aplicar máscara QA60
-  var qa = s.QA60;
-  var cloudBit = 1 << 10;
-  var cirrusBit = 1 << 11;
-  var isCloud = ((qa & cloudBit) || (qa & cirrusBit));
-  
-  if (isCloud) {
-    return [0.5, 0.5, 0.5];  // Cinza para nuvens
-  }
-  
   var ndvi = index(s.B08, s.B04);
   return ndviColor(ndvi);
 }

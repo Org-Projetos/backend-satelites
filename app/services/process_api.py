@@ -162,8 +162,8 @@ async def render_optical(
                     "type": collection,
                     "dataFilter": {
                         "timeRange": {"from": from_dt, "to": to_dt},
-                        "maxCloudCoverage": 100,  # Usar 100% para garantir que encontre a cena
-                        "mosaickingOrder": "leastCC",
+                        "maxCloudCoverage": max_cloud_cover,  # Usar o percentual fornecido
+                        "mosaickingOrder": "leastCC",  # Least Cloud Cover first
                     },
                     "processing": {
                         "upsampling": "BICUBIC", 
