@@ -23,18 +23,18 @@ class AnalysisScheduleRepository:
     def __init__(self, engine: Engine | None = None):
         self.engine = engine or get_engine()
 
-    def create(self, user_id: str, schedule: AnalysisScheduleCreate) -> AnalysisScheduleResponse:
-        """Cria uma nova análise agendada."""
+    def create(self, user_id: str, schedule: AnalysisScheduleCreate, area_data: dict) -> AnalysisScheduleResponse:
+        """Cria uma nova análise agendada baseada em uma Área."""
         schedule_id = str(uuid4())
         now = datetime.utcnow()
 
         stmt = analysis_schedules_table.insert().values(
             id=schedule_id,
             user_id=user_id,
-            bbox=schedule.bbox,
-            area_hectares=schedule.area_hectares,
-            resolution=schedule.resolution,
-            max_cloud_cover=schedule.max_cloud_cover,
+            bbox=area_data["bbox"],
+            area_hectares=area_data.get("area_hectares"),
+            resolution=area_data["resolution"],
+            max_cloud_cover=area_data["max_cloud_cover"],
             is_active=schedule.is_active,
             created_at=now,
             updated_at=now,

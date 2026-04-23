@@ -25,6 +25,7 @@ from app.repositories.schedule_repository import (
     get_schedule_repository,
     get_history_repository,
 )
+from app.repositories import area_repository
 from app.scheduler import get_scheduler
 
 router = APIRouter(prefix="/schedules", tags=["Análises Agendadas"])
@@ -49,11 +50,36 @@ async def create_schedule(
     current_user: User = Depends(get_current_user),
     background_tasks: BackgroundTasks = None,
 ):
-    """Cria uma nova análise agendada semanal e executa a primeira análise imediatamente."""
-    repo = get_schedule_repository()
-    schedule = repo.create(current_user.username, body)
+    """Cria uma nova análise agendada baseada em uma Área e executa a primeira análise imediatamente."""
     
-    # 🚀 Dispara análise inicial em background (não bloqueia a resposta HTTP)
+    # 1️⃣ Buscar a Área
+    area = area_repository.get_area(body.area_id)
+    if not area:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Área não encontrada",
+        )
+    
+    # 2️⃣ Verificar se usuário tem acesso à Área (admin vê todas, usuário comum vê só as atribuídas)
+    if not current_user.is_admin and not area_repository.is_user_assigned(body.area_id, current_user.username):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Você não tem permissão para criar agendamentos nesta Área",
+        )
+    
+    # 3️⃣ Extrair dados da Área para criar o Schedule
+    area_data = {
+        "bbox": area.bbox,
+        "area_hectares": area.area_hectares,
+        "resolution": area.resolution,
+        "max_cloud_cover": area.max_cloud_cover,
+    }
+    
+    # 4️⃣ Criar Schedule com dados da Área
+    repo = get_schedule_repository()
+    schedule = repo.create(current_user.username, body, area_data)
+    
+    # 5️⃣ Dispara análise inicial em background (não bloqueia a resposta HTTP)
     if background_tasks:
         def run_initial_analysis_sync():
             try:

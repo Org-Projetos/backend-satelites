@@ -11,12 +11,9 @@ Resolution = Literal["low", "medium", "high"]
 
 
 class AnalysisScheduleCreate(BaseModel):
-    """Schema para criar uma nova análise agendada."""
+    """Schema para criar uma nova análise agendada baseada em uma Área."""
     
-    bbox: list[float] = Field(..., description="Bounding box [min_lon, min_lat, max_lon, max_lat]")
-    area_hectares: float = Field(..., description="Área em hectares")
-    resolution: Resolution = Field(default="medium", description="Resolução: low (512px), medium (1024px), high (2048px)")
-    max_cloud_cover: float = Field(default=30, description="Cobertura máxima de nuvens em %")
+    area_id: str = Field(..., description="ID da Área para a qual criar o agendamento")
     is_active: bool = Field(default=True, description="Se a análise está ativa")
 
 

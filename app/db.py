@@ -83,6 +83,8 @@ areas_table = Table(
     Column("bbox", ARRAY(Float), nullable=False),  # [min_lon, min_lat, max_lon, max_lat]
     Column("coordinates", JSON, nullable=True),  # GeoJSON polygon [[lon, lat], ...]
     Column("area_hectares", Float, nullable=True),
+    Column("resolution", String(20), nullable=False, server_default="medium"),  # low, medium, high
+    Column("max_cloud_cover", Float, nullable=False, server_default="30"),  # % máximo de nuvens
     Column("created_by", String(64), ForeignKey("users.username"), nullable=False),
     Column("created_at", DateTime, nullable=False, server_default="now()"),
     Column("updated_at", DateTime, nullable=False, server_default="now()"),

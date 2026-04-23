@@ -16,6 +16,8 @@ class AreaCreate(BaseModel):
     bbox: List[float] = Field(..., min_length=4, max_length=4, description="[min_lon, min_lat, max_lon, max_lat]")
     coordinates: Optional[List[List[float]]] = Field(None, description="GeoJSON polygon [[lon, lat], ...]")
     area_hectares: Optional[float] = Field(None, ge=0)
+    resolution: str = Field(default="medium", description="Resolução: low (512px), medium (1024px), high (2048px)")
+    max_cloud_cover: float = Field(default=30, description="Cobertura máxima de nuvens em %")
 
 
 class AreaUpdate(BaseModel):
@@ -24,6 +26,8 @@ class AreaUpdate(BaseModel):
     bbox: Optional[List[float]] = Field(None, min_length=4, max_length=4)
     coordinates: Optional[List[List[float]]] = None
     area_hectares: Optional[float] = Field(None, ge=0)
+    resolution: Optional[str] = Field(None, description="Resolução: low, medium, high")
+    max_cloud_cover: Optional[float] = Field(None, ge=0, le=100, description="Cobertura máxima de nuvens em %")
 
 
 class AreaResponse(BaseModel):
@@ -33,6 +37,8 @@ class AreaResponse(BaseModel):
     bbox: List[float]
     coordinates: Optional[List[List[float]]]
     area_hectares: Optional[float]
+    resolution: str
+    max_cloud_cover: float
     created_by: str
     created_at: datetime
     updated_at: datetime
