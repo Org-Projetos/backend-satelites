@@ -101,6 +101,21 @@ def logout(
     token_blacklist.add(token, expiry)
 
 
+@router.post(
+    "/signup",
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Auto-cadastro público (sem autenticação)",
+)
+def signup(body: RegisterRequest) -> UserResponse:
+    """Permite que qualquer pessoa crie uma conta sem precisar de token de admin."""
+    try:
+        new_user = user_store.register(body.username, body.password)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+    return UserResponse(username=new_user.username, is_admin=new_user.is_admin)
+
+
 @router.get("/me", response_model=UserResponse, summary="Dados do usuário atual")
 def me(current_user: User = Depends(get_current_user)) -> UserResponse:
     """Retorna as informações do usuário autenticado."""

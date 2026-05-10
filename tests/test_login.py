@@ -19,6 +19,7 @@ Cobre:
 import os
 import time
 from datetime import timedelta
+from unittest.mock import MagicMock, patch
 
 import pytest
 import respx
@@ -44,15 +45,16 @@ def app():
     get_settings.cache_clear()
 
     import app.db as db_module
-    from app.db import metadata
+    from app.db import users_table
 
     # Engine SQLite in-memory com StaticPool (todas as conexões compartilham o mesmo banco)
+    # Apenas users_table é criada (as demais usam ARRAY, tipo exclusivo do PostgreSQL)
     test_engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
-    metadata.create_all(test_engine)
+    users_table.create(test_engine)
     db_module._engine = test_engine
 
     # Patch init_db para não recriar o engine ao chamar create_app()
@@ -64,8 +66,13 @@ def app():
 
 @pytest.fixture(scope="module")
 def client(app):
-    with TestClient(app) as c:
-        yield c
+    _sched = MagicMock()
+    with (
+        patch("app.main.get_minio_client", return_value=MagicMock()),
+        patch("app.main.get_scheduler", return_value=_sched),
+    ):
+        with TestClient(app) as c:
+            yield c
 
 
 @pytest.fixture(autouse=True)

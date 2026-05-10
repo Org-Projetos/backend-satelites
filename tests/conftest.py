@@ -5,42 +5,101 @@ Usa:
   - pytest-asyncio para testes assíncronos
   - respx para mockar chamadas httpx
   - TestClient do FastAPI para testes de integração
+  - SQLite em memória (sem PostgreSQL, MinIO ou APScheduler reais)
 """
 
 import io
 import os
+from unittest.mock import MagicMock, patch
 
 import pytest
 import respx
 from fastapi.testclient import TestClient
 from PIL import Image
+from sqlalchemy import create_engine
+from sqlalchemy.pool import StaticPool
 
-# Garante que variáveis de ambiente de teste estejam definidas antes de importar o app
+# ─── Variáveis de ambiente mínimas (antes de qualquer import da app) ──────────
 os.environ.setdefault("CDSE_CLIENT_ID", "test-client-id")
 os.environ.setdefault("CDSE_CLIENT_SECRET", "test-client-secret")
+os.environ.setdefault("DATABASE_URL", "sqlite://")
+os.environ.setdefault("RATE_LIMIT_ENABLED", "False")
+os.environ.setdefault("SECRET_KEY", "test-secret-key-conftest-only")
+os.environ.setdefault("ADMIN_USERNAME", "admin")
+os.environ.setdefault("ADMIN_PASSWORD", "agro2024")
 
+
+# ─── App com escopo de sessão ─────────────────────────────────────────────────
 
 @pytest.fixture(scope="session")
 def app():
-    from app.main import create_app
+    """
+    Cria a aplicação FastAPI com banco SQLite em memória.
+    Sobrescreve `get_current_user` para que testes STAC/render
+    não precisem fornecer tokens JWT.
+    """
+    from app.config import get_settings
+    get_settings.cache_clear()
 
-    return create_app()
+    import app.db as db_module
+    from app.db import users_table
+
+    test_engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    users_table.create(test_engine)
+    db_module._engine = test_engine
+    db_module.init_db = lambda url: test_engine
+
+    # Importar create_app aqui garante que app.main está no sys.modules
+    from app.main import create_app
+    application = create_app()
+
+    # Bypass JWT para o client de sessão (testes de satélite não enviam tokens)
+    from app.auth.jwt_auth import get_current_user
+    from app.auth.users import User
+
+    application.dependency_overrides[get_current_user] = lambda: User(
+        username="admin", hashed_password="", is_admin=True
+    )
+
+    return application
 
 
 @pytest.fixture(scope="session")
 def client(app):
-    with TestClient(app) as c:
-        yield c
+    """Client de sessão com patches para MinIO e APScheduler."""
+    _sched_mock = MagicMock()
+    with (
+        patch("app.main.get_minio_client", return_value=MagicMock()),
+        patch("app.main.get_scheduler", return_value=_sched_mock),
+    ):
+        with TestClient(app) as c:
+            yield c
 
 
 @pytest.fixture(autouse=True)
 def reset_token_cache():
-    """Limpa o cache de token antes de cada teste para garantir isolamento."""
+    """Limpa o cache de token CDSE antes de cada teste para garantir isolamento."""
     from app.auth.cdse import cdse_auth
 
     cdse_auth.invalidate()
     yield
     cdse_auth.invalidate()
+
+
+@pytest.fixture(autouse=True)
+def reset_image_cache():
+    """Limpa o cache de imagens entre testes para evitar poluição entre cenários."""
+    from app.cache import image_cache
+
+    with image_cache._lock:
+        image_cache._store.clear()
+    yield
+    with image_cache._lock:
+        image_cache._store.clear()
 
 
 # ─── Payloads CDSE mock ───────────────────────────────────────────────────────
@@ -114,15 +173,20 @@ STAC_RESPONSE_S1 = {
 
 
 def make_png_bytes(width: int = 64, height: int = 64, large: bool = True) -> bytes:
-    """Gera bytes de um PNG de teste (grande = tem dados, pequeno = sem dados)."""
-    img = Image.new("RGB", (width, height), color=(34, 100, 34) if large else (0, 0, 0))
+    """Gera bytes de um PNG de teste (grande = tem dados, pequeno = sem dados).
+
+    Para large=True usa compress_level=0 para garantir arquivo > has_data_threshold_bytes (1500 B).
+    Cores sólidas comprimem para centenas de bytes — abaixo do threshold — sem essa opção.
+    """
+    color = (34, 100, 34) if large else (0, 0, 0)
+    img = Image.new("RGB", (width, height), color=color)
     buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    content = buf.getvalue()
-    if not large:
-        # Retorna apenas os primeiros bytes para simular PNG "vazio"
-        return content[:100]
-    return content
+    if large:
+        img.save(buf, format="PNG", compress_level=0)
+    else:
+        img.save(buf, format="PNG")
+        return buf.getvalue()[:100]
+    return buf.getvalue()
 
 
 def make_cloud_mask_png(cloud_fraction: float = 0.3, size: int = 256) -> bytes:
