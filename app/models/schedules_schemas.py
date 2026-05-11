@@ -58,7 +58,7 @@ class AnalysisHistoryResponse(BaseModel):
     execution_date: datetime
     scene_recent: Optional[SelectedSceneInfo] = None  # Imagem mais recente
     scene_previous: Optional[SelectedSceneInfo] = None  # Imagem anterior (para comparação)
-    analysis: str = Field(..., description="Resultado da análise comparativa (relatório em texto do GPT-4o Vision)")
+    analysis: str = Field(..., description="Resultado da análise comparativa (relatório em texto da IA)")
     processing_time: str
     status: str  # "success", "failed"
     error_message: Optional[str] = None

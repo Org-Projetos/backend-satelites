@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,8 +12,8 @@ class Settings(BaseSettings):
     )
 
     # Credenciais CDSE
-    cdse_client_id: str = "sh-5ec0af89-a3cf-4a8e-8061-13297f73eb84"  # TEMPORÁRIO - para testes
-    cdse_client_secret: str = "vbJi7vwMuVifsH7sZaBLxCPzEzztB0dm"  # TEMPORÁRIO - para testes
+    cdse_client_id: str = Field(..., min_length=1)
+    cdse_client_secret: str = Field(..., min_length=1)
 
     # URLs CDSE
     token_url: str = (
@@ -28,8 +29,11 @@ class Settings(BaseSettings):
     # Heurística hasData
     has_data_threshold_bytes: int = 1500
 
-    # OpenAI API (para análise via GPT-4o Vision)
-    openai_api_key: str = "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"  # TEMPORÁRIO - para testes
+    # Anthropic Claude API (para análise multimodal)
+    anthropic_api_key: str = ""
+    anthropic_model: str = "claude-sonnet-4-5"
+    anthropic_api_url: str = "https://api.anthropic.com/v1/messages"
+    anthropic_version: str = "2023-06-01"
 
     # CORS
     cors_origins: list[str] = ["*"]
@@ -54,21 +58,32 @@ class Settings(BaseSettings):
     debug: bool = False
 
     # ── Banco de dados ────────────────────────────────────────────────────────
-    database_url: str = "postgresql://agro:agro_secret@localhost:5432/agro"
+    database_url: str = Field(..., min_length=1)
 
     # ── Autenticação JWT ──────────────────────────────────────────────────────
-    secret_key: str = "change-this-secret-in-production"
+    secret_key: str = Field(..., min_length=1)
     access_token_expire_minutes: int = 60
 
-    # Usuário administrador padrão (pode ser sobrescrito pelo .env)
+    # Usuário administrador padrão
     admin_username: str = "admin"
-    admin_password: str = "agro2024"
+    admin_password: str = Field(..., min_length=1)
 
     # ── MinIO (Object Storage) ────────────────────────────────────────────────
     minio_endpoint: str = "minio:9000"
-    minio_access_key: str = "minioadmin"
-    minio_secret_key: str = "minioadmin_secret"
+    minio_access_key: str = Field(..., min_length=1)
+    minio_secret_key: str = Field(..., min_length=1)
     minio_bucket: str = "agro-images"
+
+    @field_validator("debug", mode="before")
+    @classmethod
+    def parse_debug_aliases(cls, value: object) -> object:
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"release", "production", "prod"}:
+                return False
+            if normalized in {"development", "dev"}:
+                return True
+        return value
 
 
 @lru_cache

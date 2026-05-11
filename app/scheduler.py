@@ -86,7 +86,7 @@ class AnalysisScheduler:
         1. Busca a imagem mais recente (cena_recent)
         2. Busca a imagem anterior mais recente (cena_previous) - continua até achar
         3. Renderiza as 2 imagens (truecolor + NDVI)
-        4. Envia para GPT-4o Vision para análise comparativa
+        4. Envia para Claude para análise comparativa
         5. Salva resultado (sem armazenar imagens)
         """
         start_time = datetime.utcnow()
@@ -199,7 +199,7 @@ class AnalysisScheduler:
                 print(f"        ✅ Cena_previous renderizada (Truecolor: {len(truecolor_previous_bytes)} bytes, NDVI: {len(ndvi_previous_bytes)} bytes)")
 
             # 3. Envia para IA para análise comparativa
-            print(f"     🤖 Analisando com GPT-4o Vision...")
+            print(f"     🤖 Analisando com Claude...")
             
             truecolor_recent_b64 = ai_vision.encode_image_to_base64(truecolor_recent_bytes)
             ndvi_recent_b64 = ai_vision.encode_image_to_base64(ndvi_recent_bytes)
@@ -230,13 +230,15 @@ Analise as mudanças e evolução entre as duas datas, focando em:
 Responda em português simples, sem diagnósticos específicos.
 """
             
-            ai_report = await ai_vision.analyze_with_gpt4o_vision(
+            ai_report = await ai_vision.analyze_with_claude_vision(
                 truecolor_b64=truecolor_recent_b64,
                 ndvi_b64=ndvi_recent_b64,
                 area_hectares=schedule.area_hectares,
                 date=scene_recent.date,
                 bbox=schedule.bbox,
                 custom_prompt=analysis_prompt,
+                previous_truecolor_b64=truecolor_previous_b64,
+                previous_ndvi_b64=ndvi_previous_b64,
             )
 
             # 4. Salva no histórico (SÓ A ANÁLISE, SEM IMAGENS)

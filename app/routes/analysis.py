@@ -1,13 +1,14 @@
 """
 Endpoint de análise de imagens via IA.
 
-POST /api/analyze — analisa imagem de satélite usando GPT-4o Vision
+POST /api/analyze — analisa imagem de satélite usando Claude
 """
 
 import time
 from fastapi import APIRouter, HTTPException
 
 from app.models.analysis_schemas import AIAnalysisRequest, AIAnalysisResponse, SelectedScene
+from app.config import get_settings
 from app.services import process_api, image_selector, ai_vision
 
 router = APIRouter()
@@ -16,16 +17,16 @@ router = APIRouter()
 @router.post(
     "/analyze",
     response_model=AIAnalysisResponse,
-    summary="Análise de imagem via GPT-4o Vision"
+    summary="Análise de imagem via Claude"
 )
 async def analyze_satellite_image(req: AIAnalysisRequest) -> AIAnalysisResponse:
     """
-    Analisa automaticamente uma imagem de satélite usando GPT-4o Vision.
+    Analisa automaticamente uma imagem de satélite usando Claude.
     
     Processo:
     1. Seleciona automaticamente a melhor cena disponível próxima à data informada
     2. Renderiza imagem de cor natural e NDVI
-    3. Envia para GPT-4o Vision para análise agrícola
+    3. Envia para Claude para análise agrícola
     4. Retorna relatório operacional para o produtor
     
     A análise considera:
@@ -86,8 +87,8 @@ async def analyze_satellite_image(req: AIAnalysisRequest) -> AIAnalysisResponse:
         print(f"  📋 Base64 Truecolor: {len(truecolor_b64)} chars")
         print(f"  📋 Base64 NDVI: {len(ndvi_b64)} chars")
         
-        # 4. Análise via GPT-4o Vision
-        ai_report = await ai_vision.analyze_with_gpt4o_vision(
+        # 4. Análise via Claude
+        ai_report = await ai_vision.analyze_with_claude_vision(
             truecolor_b64=truecolor_b64,
             ndvi_b64=ndvi_b64,
             area_hectares=req.areaHectares,
@@ -97,6 +98,7 @@ async def analyze_satellite_image(req: AIAnalysisRequest) -> AIAnalysisResponse:
         
         # 5. Prepara resposta
         processing_time = round(time.time() - start_time, 2)
+        settings = get_settings()
         
         return AIAnalysisResponse(
             selectedScene=SelectedScene(
@@ -112,7 +114,8 @@ async def analyze_satellite_image(req: AIAnalysisRequest) -> AIAnalysisResponse:
             analysis=ai_report,
             metadata={
                 "processingTime": f"{processing_time}s",
-                "gptModel": "gpt-4o",
+                "aiProvider": "anthropic",
+                "aiModel": settings.anthropic_model,
                 "resolution": req.resolution,
                 "areaHectares": req.areaHectares
             }

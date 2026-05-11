@@ -81,7 +81,7 @@ areas_table = Table(
     Column("name", String(128), nullable=False),
     Column("description", String(512), nullable=True),
     Column("bbox", ARRAY(Float), nullable=False),  # [min_lon, min_lat, max_lon, max_lat]
-    Column("coordinates", JSON, nullable=True),  # GeoJSON polygon [[lon, lat], ...]
+    Column("coordinates", JSON(none_as_null=True), nullable=True),  # GeoJSON polygon [[lon, lat], ...]
     Column("area_hectares", Float, nullable=True),
     Column("resolution", String(20), nullable=False, server_default="medium"),  # low, medium, high
     Column("max_cloud_cover", Float, nullable=False, server_default="30"),  # % máximo de nuvens
@@ -119,4 +119,3 @@ def get_engine() -> Engine:
     if _engine is None:
         raise RuntimeError("Banco de dados não inicializado. Chame init_db() primeiro.")
     return _engine
-

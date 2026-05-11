@@ -27,6 +27,9 @@ os.environ.setdefault("RATE_LIMIT_ENABLED", "False")
 os.environ.setdefault("SECRET_KEY", "test-secret-key-conftest-only")
 os.environ.setdefault("ADMIN_USERNAME", "admin")
 os.environ.setdefault("ADMIN_PASSWORD", "agro2024")
+os.environ.setdefault("MINIO_ACCESS_KEY", "test-minio-access-key")
+os.environ.setdefault("MINIO_SECRET_KEY", "test-minio-secret-key")
+os.environ.setdefault("ANTHROPIC_API_KEY", "test-anthropic-api-key")
 
 
 # ─── App com escopo de sessão ─────────────────────────────────────────────────

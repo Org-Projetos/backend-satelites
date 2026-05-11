@@ -1,11 +1,9 @@
 """
-Serviço de análise de imagens via OpenAI GPT-4o Vision.
+Serviço de análise de imagens via Anthropic Claude.
 """
 
-import asyncio
 import base64
-import time
-from typing import Optional
+from typing import Any
 
 import httpx
 
@@ -56,16 +54,41 @@ Baseie sua análise nas imagens fornecidas.
 """
 
 
-async def analyze_with_gpt4o_vision(
+def _image_content(label: str, image_b64: str) -> list[dict[str, Any]]:
+    return [
+        {"type": "text", "text": label},
+        {
+            "type": "image",
+            "source": {
+                "type": "base64",
+                "media_type": "image/png",
+                "data": image_b64,
+            },
+        },
+    ]
+
+
+def _extract_text_content(result: dict[str, Any]) -> str:
+    text_blocks = [
+        block.get("text", "")
+        for block in result.get("content", [])
+        if block.get("type") == "text"
+    ]
+    return "\n".join(block for block in text_blocks if block).strip()
+
+
+async def analyze_with_claude_vision(
     truecolor_b64: str,
     ndvi_b64: str,
     area_hectares: float,
     date: str,
     bbox: list[float],
     custom_prompt: str | None = None,
+    previous_truecolor_b64: str | None = None,
+    previous_ndvi_b64: str | None = None,
 ) -> str:
     """
-    Envia imagens para GPT-4o Vision e recebe relatório de análise.
+    Envia imagens para Claude e recebe relatório de análise.
     
     Args:
         truecolor_b64: Imagem de cor natural em base64
@@ -74,17 +97,18 @@ async def analyze_with_gpt4o_vision(
         date: Data da análise
         bbox: Coordenadas da área
         custom_prompt: Prompt customizado (opcional). Se não fornecido, usa o template padrão.
+        previous_truecolor_b64: Imagem anterior de cor natural em base64 (opcional)
+        previous_ndvi_b64: Imagem NDVI anterior em base64 (opcional)
     
     Returns:
         Relatório gerado pela IA
     """
     settings = get_settings()
     
-    # Verifica se a API key está configurada
-    if not settings.openai_api_key:
+    if not settings.anthropic_api_key:
         raise ValueError(
-            "OpenAI API key não configurada. "
-            "Configure a variável OPENAI_API_KEY no arquivo .env"
+            "Anthropic API key não configurada. "
+            "Configure a variável ANTHROPIC_API_KEY no arquivo .env"
         )
     
     # Usa prompt customizado ou padrão
@@ -98,53 +122,46 @@ async def analyze_with_gpt4o_vision(
             bbox=bbox
         )
     
-    # Prepara as mensagens para a API
+    content: list[dict[str, Any]] = []
+    content.extend(_image_content("Imagem recente 1: cor natural (truecolor)", truecolor_b64))
+    content.extend(_image_content("Imagem recente 2: índice de vegetação (NDVI)", ndvi_b64))
+
+    if previous_truecolor_b64 and previous_ndvi_b64:
+        content.extend(_image_content("Imagem anterior 1: cor natural (truecolor)", previous_truecolor_b64))
+        content.extend(_image_content("Imagem anterior 2: índice de vegetação (NDVI)", previous_ndvi_b64))
+
+    content.append({"type": "text", "text": prompt})
+
     messages = [
         {
             "role": "user",
-            "content": [
-                {
-                    "type": "text",
-                    "text": prompt
-                },
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": f"data:image/png;base64,{truecolor_b64}",
-                        "detail": "high"
-                    }
-                },
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": f"data:image/png;base64,{ndvi_b64}",
-                        "detail": "high"
-                    }
-                }
-            ]
+            "content": content,
         }
     ]
     
-    # Faz a chamada para a API OpenAI
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            "https://api.openai.com/v1/chat/completions",
+            settings.anthropic_api_url,
             headers={
-                "Authorization": f"Bearer {settings.openai_api_key}",
-                "Content-Type": "application/json"
+                "x-api-key": settings.anthropic_api_key,
+                "anthropic-version": settings.anthropic_version,
+                "content-type": "application/json",
             },
             json={
-                "model": "gpt-4o",
-                "messages": messages,
+                "model": settings.anthropic_model,
                 "max_tokens": 2000,
-                "temperature": 0.3
+                "messages": messages,
+                "temperature": 0.3,
             },
-            timeout=120  # 2 minutos timeout
+            timeout=120,
         )
         response.raise_for_status()
         
         result = response.json()
-        return result["choices"][0]["message"]["content"]
+        text = _extract_text_content(result)
+        if not text:
+            raise ValueError("Resposta do Claude não retornou conteúdo de texto.")
+        return text
 
 
 def encode_image_to_base64(image_bytes: bytes) -> str:

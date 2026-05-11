@@ -61,7 +61,7 @@ _OPENAPI_TAGS = [
         "name": "Análise via IA",
         "description": (
             "Seleciona automaticamente a melhor cena disponível, renderiza imagens "
-            "truecolor e NDVI e envia para o GPT-4o Vision para análise agrícola."
+            "truecolor e NDVI e envia para Claude para análise agrícola."
         ),
     },
     {
@@ -172,7 +172,7 @@ def create_app() -> FastAPI:
 
     # Rotas protegidas: todas as rotas /api/* exigem JWT válido
     _err_401 = {"description": "Token ausente, inválido ou expirado"}
-    _err_502 = {"description": "Erro ao comunicar com o serviço externo (CDSE / OpenAI)"}
+    _err_502 = {"description": "Erro ao comunicar com o serviço externo (CDSE / Anthropic)"}
     protected = {
         "dependencies": [Depends(get_current_user)],
         "responses": {401: _err_401, 502: _err_502},

@@ -1,5 +1,5 @@
 """
-Extrai métricas estruturadas/numéricas da resposta de texto do GPT-4o Vision.
+Extrai métricas estruturadas/numéricas da resposta de texto da IA.
 """
 
 from app.models.schedules_schemas import AnalysisMetricsResponse
@@ -10,7 +10,7 @@ def extract_metrics_from_analysis(analysis_text: str) -> AnalysisMetricsResponse
     Parse a resposta de texto da IA e extrai dados estruturados/numéricos.
     
     Args:
-        analysis_text: Texto da análise retornado pelo GPT-4o Vision
+        analysis_text: Texto da análise retornado pela IA
     
     Returns:
         AnalysisMetricsResponse com dados estruturados

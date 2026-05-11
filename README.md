@@ -198,6 +198,10 @@ Documentação completa em [docs/API.md](docs/API.md) e em `/docs` (Swagger UI).
 |----------|--------|-----------|
 | `CDSE_CLIENT_ID` | — | Client ID CDSE (obrigatório) |
 | `CDSE_CLIENT_SECRET` | — | Client Secret CDSE (obrigatório) |
+| `ANTHROPIC_API_KEY` | — | API key Anthropic para análise multimodal |
+| `ANTHROPIC_MODEL` | `claude-sonnet-4-5` | Modelo Claude com suporte a texto e imagem |
+| `ANTHROPIC_API_URL` | `https://api.anthropic.com/v1/messages` | Endpoint Messages API |
+| `ANTHROPIC_VERSION` | `2023-06-01` | Versão da API Anthropic |
 | `TOKEN_RENEWAL_MARGIN_SECONDS` | 120 | Margem antes de renovar o token |
 | `HAS_DATA_THRESHOLD_BYTES` | 1500 | Tamanho mínimo PNG para considerar dados |
 | `CORS_ORIGINS` | `["*"]` | Origins CORS permitidas |
